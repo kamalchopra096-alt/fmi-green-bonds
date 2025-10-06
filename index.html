@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Green Bond Market — Classroom Simulation</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#ffffff; --muted:#6b7280; --accent:#0f62fe;
+    --success:#16a34a; --danger:#dc2626; --glass: rgba(255,255,255,0.6);
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,Arial; margin:0; background:linear-gradient(180deg,#f6f8fa,#eaf2ff); color:#0f172a}
+  .wrap{max-width:1200px;margin:18px auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  h1{margin:0;font-size:20px}
+  .card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(13, 38, 76, 0.06);margin-bottom:12px}
+  .row{display:flex;gap:12px;align-items:flex-start}
+  .col{flex:1;min-width:260px}
+  input,select,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #e6eef8}
+  button{background:var(--accent);color:white;border:none;cursor:pointer}
+  .playersList{max-height:180px;overflow:auto;margin-top:8px}
+  .playerItem{display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px dashed #eef2f7}
+  .avatar{width:28px;height:28px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .sectorsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+  .sectorCard{padding:10px;border-radius:10px;border:1px solid #eef4ff;background:linear-gradient(180deg,#fff,#fbfdff)}
+  .locked{opacity:0.45}
+  .muted{color:var(--muted);font-size:13px}
+  .small{font-size:13px;color:#334155}
+  .spark{height:36px;width:100%;display:block}
+  .portfolio{display:flex;gap:12px;flex-wrap:wrap}
+  .pv{min-width:160px;padding:8px;border-radius:8px;background:#fbfcff;border:1px solid #eef4ff}
+  .newsLine{padding:8px;border-radius:8px;background:#fff7ed;border:1px solid #ffedd5;margin-bottom:6px}
+  .tip{padding:8px;border-radius:8px;background:#eef9ff;border:1px solid #d6f0ff;margin-bottom:6px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .resultsPopup{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:white;padding:18px;border-radius:10px;box-shadow:0 12px 36px rgba(2,6,23,0.16);z-index:9999}
+  footer{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
+  .badge{font-size:12px;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#0f172a}
+  .mutedSmall{color:#7b8794;font-size:12px}
+  label{display:block;margin-bottom:6px;color:#0f172a;font-weight:600}
+  .investRow{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  input[type=number]{width:100px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Green Bond Market — Classroom Simulation</h1>
+      <div class="mutedSmall">Host creates room → players join → invest ₹100 → host unlocks sectors → results auto-calculated</div>
+    </div>
+    <div id="topRight">
+      <span id="roomDisplay" class="badge">No room</span>
+    </div>
+  </header>
+
+  <!-- Lobby / Join -->
+  <div id="lobbyCard" class="card">
+    <div class="row">
+      <div class="col">
+        <label>Your name</label>
+        <input id="nameInput" placeholder="Team name (e.g., Team A)" />
+      </div>
+      <div class="col">
+        <label>Avatar color</label>
+        <select id="avatarSelect">
+          <option value="#ef4444">Red</option>
+          <option value="#0f62fe">Blue</option>
+          <option value="#10b981">Green</option>
+          <option value="#f59e0b">Yellow</option>
+          <option value="#7c3aed">Purple</option>
+          <option value="#fb7185">Pink</option>
+          <option value="#06b6d4">Cyan</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Room code</label>
+        <input id="roomInput" placeholder="Enter or generate (host)" />
+      </div>
+    </div>
+
+    <div style="margin-top:10px" class="row">
+      <div class="controls">
+        <button id="generateRoomBtn">Generate Room (Host)</button>
+        <button id="joinBtn">Join Room</button>
+        <button id="openHostBtn" disabled>Open Host Panel</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <strong>Players in room</strong>
+      <div id="playersList" class="playersList"></div>
+    </div>
+  </div>
+
+  <!-- Host panel -->
+  <div id="hostPanel" class="card" style="display:none">
+    <h3>Host Dashboard</h3>
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div class="small">Room code: <strong id="hostRoomCode"></strong></div>
+        <div style="margin-top:8px" class="mutedSmall">You are host and supervisor. You do not invest.</div>
+      </div>
+      <div class="controls">
+        <button id="startGameBtn">Start Game</button>
+        <button id="unlockAllBtn">Unlock All Sectors</button>
+        <button id="endGameBtn">End Game</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <strong>Latest news (host sees all)</strong>
+      <div id="hostNews" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <strong>Impostor Tips Seen</strong>
+      <div id="hostTips" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- Game area -->
+  <div id="gameArea" class="card" style="display:none">
+    <div class="row">
+      <div class="col">
+        <h3>Market News & Tips</h3>
+        <div id="newsFeed"></div>
+        <div id="tipFeed" style="margin-top:8px"></div>
+      </div>
+
+      <div class="col">
+        <h3>Your Portfolio</h3>
+        <div class="portfolio">
+          <div class="pv card"><div class="small">Team</div><div id="meName" style="font-weight:700"></div></div>
+          <div class="pv card"><div class="small">Remaining</div><div id="meRemaining" style="font-weight:700">100</div></div>
+          <div class="pv card"><div class="small">Estimated Value</div><div id="meEstimate" style="font-weight:700">100</div></div>
+        </div>
+        <div style="margin-top:8px" class="mutedSmall">Estimated Value uses displayed ROI (not final hidden multipliers).</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <h3>All Sectors (visible to everyone)</h3>
+      <div class="mutedSmall">Locked sectors show as inaccessible until host unlocks them. You can view ratios & a short sparkline to help technical analysis.</div>
+      <div id="sectorsGrid" class="sectorsGrid" style="margin-top:10px"></div>
+    </div>
+
+    <div style="margin-top:12px" class="card">
+      <h3>Invest / Reallocate (Total: <span id="totalPool">100</span>)</h3>
+      <div id="investForm"></div>
+      <div style="margin-top:8px">
+        <button id="submitInvBtn">Submit Investment</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="results" class="card" style="display:none"></div>
+
+  <footer>Designed for classroom simulation — host controls access to sectors; impostor tips test market signals.</footer>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* Client script */
+const socket = io();
+
+// Sector public metadata (must match server order)
+const SECTORS = [
+  {id:0,name:"Renewable Energy",roi:8,beta:0.9,esg:9,locked:false,desc:"Large-scale solar & wind"},
+  {id:1,name:"Fossil Fuels",roi:12,beta:1.4,esg:2,locked:false,desc:"Coal & oil plants"},
+  {id:2,name:"Electric Vehicles",roi:10,beta:1.2,esg:8,locked:true,desc:"EV manufacturing & infra"},
+  {id:3,name:"Green Infrastructure",roi:6,beta:0.8,esg:7,locked:false,desc:"Public-private green projects"},
+  {id:4,name:"Waste Management",roi:7,beta:0.7,esg:9,locked:true,desc:"Recycling & waste-to-energy"},
+  {id:5,name:"Water Conservation",roi:9,beta:0.9,esg:8,locked:true,desc:"Water treatment & reuse"},
+  {id:6,name:"Carbon Credits",roi:15,beta:1.5,esg:10,locked:true,desc:"Carbon trading instruments"},
+  {id:7,name:"Green Buildings",roi:9,beta:1.1,esg:8,locked:false,desc:"Energy efficient constructions"},
+  {id:8,name:"Sustainable Agriculture",roi:8,beta:1.0,esg:8,locked:false,desc:"Climate-smart farming"},
+  {id:9,name:"Solar Manufacturing",roi:10,beta:1.3,esg:9,locked:true,desc:"Panel & cell manufacturing"},
+  {id:10,name:"Hydrogen Energy",roi:18,beta:1.8,esg:9,locked:true,desc:"Early-stage hydrogen tech"},
+  {id:11,name:"ESG Mutual Fund",roi:6,beta:0.7,esg:8,locked:false,desc:"Diversified ESG fund"}
+];
+
+// UI elements
+const roomDisplay = document.getElementById('roomDisplay');
+const nameInput = document.getElementById('nameInput');
+const avatarSelect = document.getElementById('avatarSelect');
+const roomInput = document.getElementById('roomInput');
+const generateRoomBtn = document.getElementById('generateRoomBtn');
+const joinBtn = document.getElementById('joinBtn');
+const openHostBtn = document.getElementById('openHostBtn');
+const playersList = document.getElementById('playersList');
+const hostPanel = document.getElementById('hostPanel');
+const hostRoomCode = document.getElementById('hostRoomCode');
+const startGameBtn = document.getElementById('startGameBtn');
+const unlockAllBtn = document.getElementById('unlockAllBtn');
+const endGameBtn = document.getElementById('endGameBtn');
+const hostNews = document.getElementById('hostNews');
+const hostTips = document.getElementById('hostTips');
+const gameArea = document.getElementById('gameArea');
+const sectorsGrid = document.getElementById('sectorsGrid');
+const investForm = document.getElementById('investForm');
+const meRemaining = document.getElementById('meRemaining');
+const meEstimate = document.getElementById('meEstimate');
+const meName = document.getElementById('meName');
+const newsFeed = document.getElementById('newsFeed');
+const tipFeed = document.getElementById('tipFeed');
+const submitInvBtn = document.getElementById('submitInvBtn');
+const resultsDiv = document.getElementById('results');
+const openHostPanelBtn = document.getElementById('openHostBtn');
+let currentRoom = null;
+let myName = null;
+let myAvatar = null;
+let myRole = null;
+let isHost = false;
+let sectorsUnlocked = 0;
+let myInvestments = {}; // {sid:amt}
+let myRemaining = 100;
+
+// generate room code (host)
+generateRoomBtn.onclick = () => {
+  const code = Math.random().toString(36).slice(2,8).toUpperCase();
+  roomInput.value = code;
+  alert('Room code generated: ' + code + '\nNow click Join Room. If you are the host, your panel will appear.');
+};
+
+// join room
+joinBtn.onclick = () => {
+  const name = nameInput.value.trim();
+  const avatar = avatarSelect.value;
+  const roomCode = roomInput.value.trim().toUpperCase();
+  if(!name || !roomCode) return alert('Enter name and room code');
+  myName = name; myAvatar = avatar; currentRoom = roomCode;
+  socket.emit('joinRoom', {roomCode, name, avatar}, (res) => {
+    if(!res){ return alert('No response from server'); }
+    if(res.error) return alert(res.error);
+    // UI
+    roomDisplay.innerText = 'Room: ' + roomCode;
+    meName.innerText = myName;
+    // show game area
+    document.getElementById('lobbyCard').style.display = 'none';
+    gameArea.style.display = 'block';
+    openHostPanelBtn.disabled = false;
+    sectorsUnlocked = res.sectorsUnlocked;
+    renderSectors(res.sectors);
+    renderInvestForm();
+  });
+};
+
+// enable host panel open if host
+openHostPanelBtn.onclick = () => {
+  if(!isHost) return alert('You are not host');
+  hostPanel.style.display = 'block';
+  hostRoomCode.innerText = currentRoom;
+  window.scrollTo({top:0,behavior:'smooth'});
+};
+
+// socket handlers
+socket.on('playersUpdate', players => {
+  playersList.innerHTML = '';
+  players.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'playerItem';
+    div.innerHTML = `<span class="avatar" style="background:${p.avatar}"></span><div><strong>${p.name}</strong><div class="mutedSmall">${p.role?('Role: '+p.role):''} ${p.remaining !== undefined ? ' — Rem: '+p.remaining : ''}</div></div>`;
+    playersList.appendChild(div);
+  });
+});
+
+socket.on('gameStarted', data => {
+  // data.players includes roles & ids
+  sectorsUnlocked = data.sectorsUnlocked;
+  myRole = data.players.find(p=>p.name===myName)?.role || myRole;
+  isHost = data.players.find(p=>p.name===myName && p.role==='host') ? true : isHost;
+  appendNews('Game started. Sectors unlocked: ' + sectorsUnlocked);
+  renderSectors();
+  renderInvestForm();
+  if(myRole === 'impostor'){
+    createImpostorUI();
+    alert('You are the Green Impostor. You cannot invest. Use tips to influence others.');
+  }
+});
+
+socket.on('news', ({sectorId, positive, text}) => {
+  appendNews((positive? '✅ ':'⚠️ ') + (text || ('News on ' + SECTORS[sectorId].name)));
+});
+
+// host sees tips
+socket.on('impostorTipSeen', ({from, tip, target}) => {
+  const d = document.createElement('div'); d.className='tip'; d.innerText = `Tip seen: ${tip.text} -> target: ${target}`;
+  hostTips.prepend(d);
+});
+
+// player receives tip (private)
+socket.on('receiveTip', ({from, tip}) => {
+  const d = document.createElement('div'); d.className='tip'; d.innerText = `${from}: ${tip.text}`;
+  tipFeed.prepend(d);
+  // small visual nudge
+  setTimeout(()=>d.style.background='#fff7ed', 200);
+});
+
+// host news and tips feed
+socket.on('news', data => {
+  const d = document.createElement('div'); d.className='newsLine'; d.innerText = (data.text || 'News') ;
+  newsFeed.prepend(d);
+  if(isHost) {
+    const hd = document.createElement('div'); hd.className='newsLine'; hd.innerText = 'Host saw: ' + (data.text || '');
+    hostNews.prepend(hd);
+  }
+});
+
+// sectorsUnlocked
+socket.on('sectorsUnlocked', count => {
+  sectorsUnlocked = count;
+  appendNews('Host unlocked sectors: ' + sectorsUnlocked + ' / ' + SECTORS.length);
+  renderSectors();
+  renderInvestForm();
+});
+
+// players updates (detailed)
+socket.on('playersUpdate', players => {
+  // update players list and if my remaining changed update UI
+  playersList.innerHTML = '';
+  players.forEach(p => {
+    const div = document.createElement('div'); div.className='playerItem';
+    div.innerHTML = `<span class="avatar" style="background:${p.avatar}"></span><div><strong>${p.name}</strong><div class="mutedSmall">${p.role?('Role: '+p.role):''} ${p.remaining !== undefined ? ' — Rem: '+p.remaining : ''}</div></div>`;
+    playersList.appendChild(div);
+    if(p.name === myName && p.remaining !== undefined){
+      myRemaining = p.remaining;
+      meRemaining.innerText = myRemaining;
+    }
+  });
+});
+
+// updateInvestments (server-stored)
+socket.on('updateInvestments', list => {
+  console.log('investments update', list);
+});
+
+// gameEnded - results
+socket.on('gameEnded', ({results, winner, impostor, multipliers}) => {
+  // show popup
+  resultsDiv.style.display = 'block';
+  let html = `<h3>Game Results</h3>`;
+  if(winner) html += `<div><strong>Winner: ${winner.name}</strong></div>`;
+  if(impostor) html += `<div>Impostor: <strong>${impostor.name}</strong></div>`;
+  html += `<table style="width:100%;margin-top:8px"><tr><th>Team</th><th>Final Value</th></tr>`;
+  results.filter(r=>r.total!==null).sort((a,b)=>b.total-a.total).forEach(r=>{
+    html += `<tr><td>${r.name}</td><td>${(r.total).toFixed(2)}</td></tr>`;
+  });
+  html += `</table><div style="margin-top:8px"><strong>Hidden multipliers (for teacher):</strong><div class="mutedSmall">${multipliers.map(m=>m.id+':'+m.mult).join(' | ')}</div></div>`;
+  resultsDiv.innerHTML = html;
+  window.scrollTo(0,document.body.scrollHeight);
+});
+
+// helper to append news
+function appendNews(txt){
+  const d = document.createElement('div'); d.className='newsLine'; d.innerText = txt;
+  newsFeed.prepend(d);
+}
+
+// render sectors cards
+function renderSectors(serverSectors){
+  sectorsGrid.innerHTML = '';
+  SECTORS.forEach(s => {
+    const c = document.createElement('div'); c.className='sectorCard' + ((s.locked && SECTORS.indexOf(s) >= sectorsUnlocked)? ' locked' : '');
+    const idx = s.id;
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${s.name}</strong><div class="mutedSmall">ROI:${s.roi}% &nbsp; Beta:${s.beta} &nbsp; ESG:${s.esg}/10</div></div>
+      <div class="small" style="margin-top:6px">${s.desc}</div>
+      <svg class="spark" data-id="${idx}"></svg>
+      <div class="mutedSmall" style="margin-top:6px">${(idx >= sectorsUnlocked && s.locked) ? 'Locked — inaccessible' : 'Available to invest'}</div>`;
+    sectorsGrid.appendChild(c);
+    // draw mini sparkline (simple synthetic data)
+    drawSparkline(c.querySelector('svg'), idx);
+  });
+}
+
+// draw simple synthetic sparkline for a sector (client-side only)
+function drawSparkline(svgEl, id){
+  const w = 200, h = 36;
+  svgEl.setAttribute('width', w); svgEl.setAttribute('height', h);
+  // generate deterministic pseudo-random series from id
+  const pts = [];
+  let seed = id + 7;
+  for(let i=0;i<12;i++){
+    seed = (seed * 9301 + 49297) % 233280;
+    const rnd = seed / 233280;
+    pts.push( (rnd*0.8 + i*0.02) );
+  }
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const scaleY = v => h - ((v - min) / (max - min || 1)) * (h - 6);
+  const step = w / (pts.length - 1);
+  let path = '';
+  pts.forEach((p,i)=> {
+    const x = i*step, y = scaleY(p);
+    path += (i===0? 'M':' L') + x + ' ' + y;
+  });
+  svgEl.innerHTML = `<path d="${path}" stroke="#0f62fe" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+// render invest form
+function renderInvestForm(){
+  investForm.innerHTML = '';
+  myInvestments = {};
+  myRemaining = 100;
+  meRemaining.innerText = myRemaining;
+  meEstimate.innerText = '100.00';
+  SECTORS.forEach(s => {
+    const sid = s.id;
+    const disabled = (sid >= sectorsUnlocked && s.locked) ? 'disabled' : '';
+    const row = document.createElement('div'); row.className='investRow';
+    row.innerHTML = `<div style="flex:1"><strong>${s.name}</strong><div class="mutedSmall">${s.desc}</div></div>
+      <div style="width:120px"><input type="number" min="0" max="100" value="0" data-sid="${sid}" ${disabled} class="investInput" /></div>
+      <div style="width:80px" class="mutedSmall">ROI:${s.roi}%</div>`;
+    investForm.appendChild(row);
+  });
+  // attach inputs change
+  investForm.querySelectorAll('.investInput').forEach(inp => {
+    inp.addEventListener('input', updateEstimateFromInputs);
+  });
+}
+
+// compute estimated value using displayed ROI
+function updateEstimateFromInputs(){
+  let tot=0; let est=0;
+  investForm.querySelectorAll('.investInput').forEach(inp => {
+    const amt = Number(inp.value) || 0;
+    const sid = Number(inp.dataset.sid);
+    tot += amt;
+    const s = SECTORS.find(x=>x.id===sid);
+    est += amt * (1 + s.roi/100); // estimated using shown ROI
+  });
+  myRemaining = Math.max(0, 100 - tot);
+  meRemaining.innerText = myRemaining.toFixed(2);
+  meEstimate.innerText = est.toFixed(2);
+}
+
+// submit investments
+submitInvBtn.onclick = () => {
+  const inputs = investForm.querySelectorAll('.investInput');
+  const inv = {};
+  let tot = 0;
+  inputs.forEach(i => {
+    const amt = Number(i.value) || 0; const sid = Number(i.dataset.sid);
+    if(amt > 0) inv[sid] = amt;
+    tot += amt;
+  });
+  if(tot > 100 + 1e-6) return alert('Total exceeds 100');
+  socket.emit('submitInvestment', {roomCode: currentRoom, investments: inv}, (res) => {
+    if(res && res.error) return alert(res.error);
+    alert('Investment submitted. You can resubmit later if host unlocks more sectors.');
+  });
+};
+
+// Host actions
+startGameBtn.onclick = () => {
+  if(!currentRoom) return alert('No room');
+  socket.emit('startGame', currentRoom, (r)=> { if(r && r.error) alert(r.error); });
+};
+unlockAllBtn.onclick = () => { if(!currentRoom) return; socket.emit('unlockSectors', {roomCode: currentRoom, targetCount:'all'}, (r)=>{}); };
+endGameBtn.onclick = () => { if(!currentRoom) return; socket.emit('endGame', currentRoom, (r)=>{}); };
+
+// open host panel state management
+socket.on('impostorTipSeen', d=>{}); // no-op to avoid console errors
+
+// Impostor UI creation (client-side)
+function createImpostorUI(){
+  const wrapper = document.createElement('div'); wrapper.className='card'; wrapper.style.marginTop='12px';
+  wrapper.innerHTML = `<h4>Impostor Tip Panel</h4>
+    <div class="mutedSmall">Choose a tip and a target (or ALL)</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <select id="tipSelect"></select>
+      <select id="tipTarget"><option value="ALL">ALL TEAMS</option></select>
+      <button id="sendTipBtn">Send Tip</button>
+    </div>`;
+  document.querySelector('.wrap').insertBefore(wrapper, resultsDiv);
+  // populate tips & targets
+  const tipSelect = wrapper.querySelector('#tipSelect');
+  const tipTarget = wrapper.querySelector('#tipTarget');
+  const sendTipBtn = wrapper.querySelector('#sendTipBtn');
+  const TIP_LIST = [
+    {id:0,text:"EV stocks are crashing — avoid them (FALSE)"},
+    {id:1,text:"Carbon credits expected to surge (TRUE)"},
+    {id:2,text:"Coal plants will have a sudden demand spike (MIXED)"},
+    {id:3,text:"Solar manufacturing facing component shortage (TRUE)"},
+    {id:4,text:"Water projects to get extra funding (TRUE)"},
+    {id:5,text:"Green buildings under regulatory review (FALSE)"}
+  ];
+  TIP_LIST.forEach(t=> tipSelect.innerHTML += `<option value="${t.id}">${t.text}</option>`);
+  // populate targets from players list whenever players update
+  socket.on('playersUpdate', players => {
+    tipTarget.innerHTML = '<option value="ALL">ALL TEAMS</option>';
+    players.forEach(p => tipTarget.innerHTML += `<option value="${p.name}">${p.name}</option>`);
+  });
+  sendTipBtn.onclick = () => {
+    const tipId = tipSelect.value;
+    const target = tipTarget.value;
+    socket.emit('sendTip', {roomCode: currentRoom, tipId, target}, (r)=> {
+      if(r && r.error) return alert(r.error);
+      alert('Tip sent');
+    });
+  };
+}
+
+// joinRoom response didn't explicitly tell us role — server will emit gameStarted with assignments
+// But host detection: we assume the browser that created room will open host panel (generate+join)
+socket.on('connect', ()=>{ console.log('connected to server'); });
+
+// Small safety: draw initial sectors and sparkline
+window.onload = () => {
+  renderSectors();
+  renderInvestForm();
+};
+
+// We assume that when user joins, server will start sending playersUpdate etc.
+// To support host creation: if user generates code and then joins, they are host by server injection (server sets hostId)
+</script>
+</body>
+</html>
